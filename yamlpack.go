@@ -3,6 +3,8 @@ package yamlpack
 import (
 	"fmt"
 	"sync"
+
+	"github.com/spf13/viper"
 )
 
 //Yp is a yamlpack instance
@@ -79,4 +81,8 @@ func (section *YamlSection) GetStringSlice(s string) []string {
 
 func (section *YamlSection) GetBool(s string) bool {
 	return section.Viper.GetBool(s)
+}
+
+func (section *YamlSection) Sub(s string) *viper.Viper {
+	return section.Viper.Sub(s)
 }

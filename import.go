@@ -1,9 +1,11 @@
 package yamlpack
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
+	"os"
 	"regexp"
 
 	"github.com/spf13/viper"
@@ -16,8 +18,12 @@ type YamlSection struct {
 }
 
 //Import reads data from a single YAML file and adds its data to this *Yp instance
-func (yp *Yp) Import(s string) error {
-	yf, err := importYaml(s)
+func (yp *Yp) ImportFile(s string) error {
+	r, err := os.Open(s)
+	if err != nil {
+		return err
+	}
+	yf, err := importYaml(bufio.NewReader(r))
 	if err != nil {
 		return err
 	}
@@ -29,14 +35,38 @@ func (yp *Yp) Import(s string) error {
 	return nil
 }
 
-func importYaml(s string) ([]*YamlSection, error) {
-	sections := []*YamlSection{}
-	data, err := ioutil.ReadFile(s)
+//Import takes a location identifier (URI, file path, etc..) and an io.Reader
+//imported data is added to the yamlPack instance
+func (yp *Yp) Import(s string, r io.Reader) error {
+	yf, err := importYaml(r)
 	if err != nil {
-		return nil, fmt.Errorf(fmt.Sprintf("could not read file '%v': %v", s, err))
+		return err
 	}
+	yp.Lock()
+	defer func() {
+		yp.Unlock()
+	}()
+	yp.Files[s] = yf
+	return nil
+}
+
+func importYaml(r io.Reader) ([]*YamlSection, error) {
+	sections := []*YamlSection{}
+	buf := new(bytes.Buffer)
+	_, err := buf.ReadFrom(r)
+	if err != nil {
+		return nil, fmt.Errorf(fmt.Sprintf("could not read data", err))
+	}
+	data := buf.Bytes()
 	rxChunks := regexp.MustCompile(`---`)
 	chunks := rxChunks.FindAllIndex(data, -1)
+	if len(chunks) == 0 {
+		//This is missing the end delimiter ('---') or both,
+		//either way we are treating the whole file as 1 section
+		chunks = [][]int{[]int{
+			int(0), int(len(data)),
+		}}
+	}
 	for i := range chunks {
 		vp := viper.New()
 		vp.SetConfigType("yaml")
