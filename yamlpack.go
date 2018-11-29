@@ -7,6 +7,15 @@ import (
 	"github.com/spf13/viper"
 )
 
+type YamlPack interface {
+	AllSections() []*YamlSection
+	ListYamls() []string
+	GetString(s string) string
+	GetStringSlice(s string) []string
+	GetBool(s string) bool
+	Sub(s string) *viper.Viper
+}
+
 //Yp is a yamlpack instance
 type Yp struct {
 	sync.RWMutex

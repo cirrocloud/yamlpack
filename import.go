@@ -55,7 +55,7 @@ func importYaml(r io.Reader) ([]*YamlSection, error) {
 	buf := new(bytes.Buffer)
 	_, err := buf.ReadFrom(r)
 	if err != nil {
-		return nil, fmt.Errorf(fmt.Sprintf("could not read data", err))
+		return nil, fmt.Errorf(fmt.Sprintf("could not read data %v", err))
 	}
 	data := buf.Bytes()
 	rxChunks := regexp.MustCompile(`---`)
