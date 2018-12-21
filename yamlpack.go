@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"sync"
 
+	errors "github.com/charter-se/structured/errors"
 	"github.com/spf13/viper"
+	yaml "gopkg.in/yaml.v2"
 )
 
 type YamlPack interface {
@@ -22,6 +24,8 @@ type Yp struct {
 	Files    map[string][]*YamlSection
 	Handlers map[string]func(string) error
 }
+
+type Viper viper.Viper
 
 //New returns a newly created and initialized *Yp
 func New() *Yp {
@@ -92,6 +96,40 @@ func (section *YamlSection) GetBool(s string) bool {
 	return section.Viper.GetBool(s)
 }
 
-func (section *YamlSection) Sub(s string) *viper.Viper {
-	return section.Viper.Sub(s)
+func (section *YamlSection) Sub(s string) (*YamlSection, error) {
+	v := section.Viper.Sub(s)
+	if v == nil {
+		return nil, nil
+	}
+	b, err := yaml.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+	return &YamlSection{
+		Bytes: b,
+		Viper: v,
+	}, nil
+}
+
+func (section *YamlSection) AllSettings() (ret map[string]interface{}, err error) {
+	ret = make(map[string]interface{})
+	defer func() {
+		if r := recover(); r != nil {
+			err = errors.Wrap(fmt.Errorf("%v", r), "yaml parsing failed")
+		}
+	}()
+	return section.Viper.AllSettings(), nil
+}
+
+func (section *YamlSection) Unmarshal(entry interface{}) (err error) {
+
+	defer func() {
+		if r := recover(); r != nil {
+			err = errors.Wrap(fmt.Errorf("%v", r), "yaml unmarshal failed")
+		}
+	}()
+	if err = section.Viper.UnmarshalExact(&entry); err != nil {
+		return err
+	}
+	return nil
 }
