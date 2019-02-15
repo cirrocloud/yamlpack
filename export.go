@@ -13,3 +13,7 @@ func (ys *YamlSection) Yaml() (string, error) {
 	}
 	return string(s), nil
 }
+
+func (ys *YamlSection) String() string {
+	return string(ys.Bytes)
+}

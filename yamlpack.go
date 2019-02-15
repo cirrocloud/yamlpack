@@ -2,6 +2,7 @@ package yamlpack
 
 import (
 	"fmt"
+	"os"
 	"sync"
 
 	errors "github.com/charter-se/structured/errors"
@@ -122,14 +123,55 @@ func (section *YamlSection) AllSettings() (ret map[string]interface{}, err error
 }
 
 func (section *YamlSection) Unmarshal(entry interface{}) (err error) {
-
 	defer func() {
 		if r := recover(); r != nil {
 			err = errors.Wrap(fmt.Errorf("%v", r), "yaml unmarshal failed")
 		}
 	}()
-	if err = section.Viper.UnmarshalExact(&entry); err != nil {
+	m, err := yaml.Marshal(sanitize(section.Viper.AllSettings()))
+	if err != nil {
+		err = errors.Wrap(err, "yaml intermediate marshal failed")
 		return err
+	}
+	if err = yaml.Unmarshal(m, entry); err != nil {
+		err = errors.Wrap(err, "yaml unarshal strict failed")
+		return err
+	}
+	return nil
+}
+
+//sanitize converts map[interface{}]interface{} to map[string]interface{}
+func sanitize(input interface{}) interface{} {
+	switch input.(type) {
+	case map[interface{}]interface{}:
+		output := make(map[string]interface{})
+		for k, v := range input.(map[interface{}]interface{}) {
+			switch k.(type) {
+			case string:
+				output[k.(string)] = sanitize(v)
+			default:
+				fmt.Printf("sanitize: Got unhandled inner type: %T\n", input)
+			}
+		}
+		return output
+	case map[string]interface{}:
+		output := make(map[string]interface{})
+		for k, v := range input.(map[string]interface{}) {
+			output[k] = sanitize(v)
+		}
+		return output
+	case []interface{}:
+		output := []interface{}{}
+		for _, v := range input.([]interface{}) {
+			val := sanitize(v)
+			output = append(output, val)
+		}
+		return output
+	case string, []string, int, []int, bool, []bool, interface{}, nil:
+		return input
+	default:
+		os.Stderr.WriteString(fmt.Sprintf("\t-------->>>>Got type %T\n", input))
+		return input
 	}
 	return nil
 }
