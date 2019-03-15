@@ -140,6 +140,24 @@ func (section *YamlSection) Unmarshal(entry interface{}) (err error) {
 	return nil
 }
 
+func (section *YamlSection) UnmarshalStrict(entry interface{}) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = errors.Wrap(fmt.Errorf("%v", r), "yaml unmarshal failed")
+		}
+	}()
+	m, err := yaml.Marshal(sanitize(section.Viper.AllSettings()))
+	if err != nil {
+		err = errors.Wrap(err, "yaml intermediate marshal failed")
+		return err
+	}
+	if err = yaml.UnmarshalStrict(m, entry); err != nil {
+		err = errors.Wrap(err, "yaml unarshal strict failed")
+		return err
+	}
+	return nil
+}
+
 //sanitize converts map[interface{}]interface{} to map[string]interface{}
 func sanitize(input interface{}) interface{} {
 	switch input.(type) {
