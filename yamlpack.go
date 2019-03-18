@@ -102,7 +102,7 @@ func (section *YamlSection) Sub(s string) (*YamlSection, error) {
 	if v == nil {
 		return nil, nil
 	}
-	b, err := yaml.Marshal(v)
+	b, err := yaml.Marshal(v.AllSettings())
 	if err != nil {
 		return nil, err
 	}
