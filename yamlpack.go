@@ -30,6 +30,9 @@ type Viper viper.Viper
 
 //New returns a newly created and initialized *Yp
 func New() *Yp {
+	//Set Case sensiity true
+	// this is a global in viper, nothing to be done about it
+	viper.SetKeysCaseSensitive(true)
 	yp := &Yp{}
 	yp.Handlers = make(map[string]func(string) error)
 	yp.Files = make(map[string][]*YamlSection)
