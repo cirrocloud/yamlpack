@@ -27,7 +27,7 @@ type YamlSection struct {
 func (yp *Yp) Import(s string, r io.Reader) error {
 	yf, err := importRawSections(r)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "importRawSections failed in import")
 	}
 	yp.Lock()
 	defer func() {
@@ -71,73 +71,22 @@ func (yp *Yp) YamlParse(name string) error {
 	return nil
 }
 
-// func (yp *Yp) ImportFileWithTemplateFunc(s string, tmplFunc TemplateFunc) error {
-// 	r, err := os.Open(s)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	yf, err := importYamlWithTemplateFunc(bufio.NewReader(r), tmplFunc)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	yp.Lock()
-// 	defer func() {
-// 		yp.Unlock()
-// 	}()
-// 	yp.Files[s] = yf
-// 	return nil
-// }
+func (yp *Yp) ImportWithTemplateFuncAndFilters(s string, r io.Reader, tf TemplateFunc, filters []string) error {
+	if err := yp.Import(s, r); err != nil {
+		return errors.Wrap(err, "Import failed")
+	}
+	if err := yp.ApplyTemplate(s, tf); err != nil {
+		return errors.Wrap(err, "ApplyTemplate")
+	}
+	if err := yp.ApplyFilters(s, filters); err != nil {
+		return errors.Wrap(err, "ApplyFilters failed")
+	}
+	if err := yp.YamlParse(s); err != nil {
+		return errors.Wrap(err, "YamlParse failed")
+	}
 
-// //ImportWithTemplateFuncAndFilter takes a location identifier (URI, file path, etc..), io.Reader, a templating function, and a filter function
-// //imported data is added to the yamlPack instance
-// func (yp *Yp) WithTemplateFuncAndFilter(s string, r io.Reader, tmplFunc TemplateFunc) error {
-// 	yf, err := importYamlWithTemplateFunc(r, tmplFunc)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	yp.Lock()
-// 	defer func() {
-// 		yp.Unlock()
-// 	}()
-// 	yp.Files[s] = yf
-// 	return nil
-// }
-
-// //Import takes a location identifier (URI, file path, etc..) and an io.Reader
-// //imported data is added to the yamlPack instance
-// func (yp *Yp) ImportWithTemplateFunc(s string, r io.Reader, tmplFunc TemplateFunc) error {
-// 	yf, err := importYamlWithTemplateFunc(r, tmplFunc)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	yp.Lock()
-// 	defer func() {
-// 		yp.Unlock()
-// 	}()
-// 	yp.Files[s] = yf
-// 	return nil
-// }
-
-// func importYamlWithTemplateFunc(r io.Reader, tmplFunc TemplateFunc) ([]*YamlSection, error) {
-// 	return importYamlWithTemplateFuncAndFilters(r, tmplFunc, []string{".+"})
-// }
-
-// //ImportWithTemplateFuncAndFilters takes a location identifier (URI, file path, etc..) an io.Reader, template function, and filter string array (regexp)
-// //imported data is added to the yamlPack instance
-// //sections within that do not match any of the supplied regexp filters will be ignored
-// //the template function will be run on all sections that pass the filter before the section is added to the *Yp instance
-// func (yp *Yp) ImportWithTemplateFuncAndFilters(s string, r io.Reader, tmplFunc TemplateFunc, filters []string) error {
-// 	yf, err := importYamlWithTemplateFuncAndFilters(r, tmplFunc, filters)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	yp.Lock()
-// 	defer func() {
-// 		yp.Unlock()
-// 	}()
-// 	yp.Files[s] = yf
-// 	return nil
-// }
+	return nil
+}
 
 //importRawSections parses an io.Reader and returns []*YamlSections without the yaml handlers
 // this allows for all sections to be processed in without necassarily filling in all of the template values at import time
@@ -171,14 +120,6 @@ func importRawSections(r io.Reader) ([]*YamlSection, error) {
 			b = data[chunks[i][1]:chunks[i+1][0]]
 		} else {
 			b = data[chunks[i][1]:]
-		}
-
-		//add viper
-		vp := viper.New()
-		vp.SetConfigType("yaml")
-		if err := vp.ReadConfig(bytes.NewBuffer(b)); err != nil {
-			fmt.Printf("---\n%v\n", string(b))
-			return nil, errors.Wrap(err, "failed to import yaml section")
 		}
 
 		//save completed section
@@ -218,6 +159,20 @@ func Filter(in []*YamlSection, filters []string) ([]*YamlSection, error) {
 	return ret, nil
 }
 
+func (yp *Yp) ApplyFilters(s string, filters []string) error {
+	if _, ok := yp.Files[s]; !ok {
+		return errors.WithFields(errors.Fields{
+			"File": s,
+		}).New("Apply filters failed, no such file loaded")
+	}
+	out, err := Filter(yp.Files[s], filters)
+	if err != nil {
+		return err
+	}
+	yp.Files[s] = out
+	return nil
+}
+
 func (yp *Yp) applyNullTemplate(name string) error {
 	if _, ok := yp.Files[name]; !ok {
 		return errors.WithFields(errors.Fields{"Name": name}).New("File has not been imported")
@@ -225,7 +180,7 @@ func (yp *Yp) applyNullTemplate(name string) error {
 
 	tf := func(in []byte) ([]byte, error) {
 		renderedBytes := bytes.NewBuffer([]byte{})
-		tmpl, err := template.New("default").Funcs(sprig.TxtFuncMap()).Parse(string(in))
+		tmpl, err := template.New("default").Parse(string(in))
 		if err != nil {
 			return nil, err
 		}
@@ -240,7 +195,7 @@ func (yp *Yp) applyNullTemplate(name string) error {
 
 	for _, section := range yp.Files[name] {
 		//run template
-		b, err := tmplFunc(section.OriginalBytes)
+		b, err := tf(section.OriginalBytes)
 		if err != nil {
 			return err
 		}
@@ -263,31 +218,3 @@ func (yp *Yp) ApplyTemplate(name string, tmplFunc TemplateFunc) error {
 	}
 	return nil
 }
-
-// func importYamlWithTemplateFuncAndFilters(r io.Reader, tmplFunc TemplateFunc, filters []string) ([]*YamlSection, error) {
-// 	sections, err := importRawSections(r)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	sections = Filter(sections, filters)
-
-// 		//run template
-// 		section.Bytes, err = tmplFunc(section.OriginalBytes)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-
-// 		//add/replace viper
-// 		vp := viper.New()
-// 		vp.SetConfigType("yaml")
-// 		if err := vp.ReadConfig(bytes.NewBuffer(section.Bytes)); err != nil {
-// 			fmt.Printf("---\n%v\n", string(section.Bytes))
-// 			return nil, errors.Wrap(err, "failed to import yaml section")
-// 		}
-
-// 		//save completed section
-// 		sections = append(sections, &YamlSection{Bytes: b, Viper: vp})
-// 	}
-// 	return sections, nil
-// }
