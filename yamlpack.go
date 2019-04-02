@@ -1,14 +1,19 @@
 package yamlpack
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"sync"
+	"text/template"
 
+	"github.com/Masterminds/sprig"
 	errors "github.com/charter-se/structured/errors"
 	"github.com/spf13/viper"
 	yaml "gopkg.in/yaml.v2"
 )
+
+type TemplateFunc func([]byte, interface{}) ([]byte, error)
 
 type YamlPack interface {
 	AllSections() []*YamlSection
@@ -22,8 +27,9 @@ type YamlPack interface {
 //Yp is a yamlpack instance
 type Yp struct {
 	sync.RWMutex
-	Files    map[string][]*YamlSection
-	Handlers map[string]func(string) error
+	Files               map[string][]*YamlSection
+	Handlers            map[string]func(string) error
+	DefaultTemplateFunc TemplateFunc
 }
 
 type Viper viper.Viper
@@ -36,7 +42,14 @@ func New() *Yp {
 	yp := &Yp{}
 	yp.Handlers = make(map[string]func(string) error)
 	yp.Files = make(map[string][]*YamlSection)
+	yp.DefaultTemplateFunc = defaultTemplate
 	return yp
+}
+
+func (yp *Yp) newSection() *YamlSection {
+	section := &YamlSection{}
+	section.TemplateFunc = yp.DefaultTemplateFunc
+	return section
 }
 
 //AllSections returns an array containing all yaml sections
@@ -113,6 +126,29 @@ func (section *YamlSection) Sub(s string) (*YamlSection, error) {
 		Bytes: b,
 		Viper: v,
 	}, nil
+}
+
+func (section *YamlSection) Render(vals ...interface{}) error {
+	return section.RenderWithTemplateFunc(section.TemplateFunc, vals)
+}
+func (section *YamlSection) RenderWithTemplateFunc(tmplFunc TemplateFunc, vals ...interface{}) error {
+
+	out, err := runTemplate(section.OriginalBytes, tmplFunc, vals...)
+	if err != nil {
+		return err
+	}
+	section.Bytes = out
+	//add viper
+	vp := viper.New()
+	vp.SetConfigType("yaml")
+	if err := vp.ReadConfig(bytes.NewBuffer(section.Bytes)); err != nil {
+		fmt.Printf("---\n%v\n", string(section.Bytes))
+		return errors.WithFields(errors.Fields{
+			"Data": section.Bytes,
+		}).Wrap(err, "failed to parse yaml section")
+	}
+	section.Viper = vp
+	return nil
 }
 
 func (section *YamlSection) AllSettings() (ret map[string]interface{}, err error) {
@@ -195,4 +231,40 @@ func sanitize(input interface{}) interface{} {
 		return input
 	}
 	return nil
+}
+
+func defaultTemplate(in []byte, val interface{}) ([]byte, error) {
+	renderedBytes := bytes.NewBuffer([]byte{})
+	tmpl, err := template.New("default").Parse(string(in))
+	if err != nil {
+		return nil, err
+	}
+	if err := tmpl.Funcs(sprig.TxtFuncMap()).Execute(renderedBytes, val); err != nil {
+		fmt.Printf("---\n")
+		fmt.Printf("%v\n", renderedBytes.String())
+		fmt.Printf("---\n")
+		return nil, errors.Wrap(err, "Failed to render template")
+	}
+	return renderedBytes.Bytes(), nil
+}
+
+func runTemplate(in []byte, tmplFunc TemplateFunc, vals ...interface{}) ([]byte, error) {
+	return tmplFunc(in, MergeValues(vals...))
+}
+
+//MergeValues is not recursive, only does the first level
+func MergeValues(v ...interface{}) map[string]interface{} {
+	target := make(map[string]interface{})
+	for _, m := range v {
+		switch vv := m.(type) {
+		case map[string]interface{}:
+			for key, val := range vv {
+				fmt.Printf("Merging %v\n", key)
+				target[key] = val
+			}
+		default:
+			fmt.Printf("Failed merge of unhandled type: %T\n", m)
+		}
+	}
+	return target
 }

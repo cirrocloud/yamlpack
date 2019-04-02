@@ -13,15 +13,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-type TemplateFunc func([]byte) ([]byte, error)
-
-//YamlFile stores raw file bytes and Viper struct
-type YamlSection struct {
-	Bytes         []byte
-	OriginalBytes []byte // Pre-template functions
-	Viper         *viper.Viper
-}
-
 //Import takes a location identifier (URI, file path, etc..) and an io.Reader
 //imported data is added to the yamlPack instance
 func (yp *Yp) Import(s string, r io.Reader) error {
@@ -204,17 +195,36 @@ func (yp *Yp) applyNullTemplate(name string) error {
 	return nil
 }
 
-func (yp *Yp) ApplyTemplate(name string, tmplFunc TemplateFunc) error {
+func (yp *Yp) applyDefaultTemplate(name string, strict bool, vals ...interface{}) error {
 	if _, ok := yp.Files[name]; !ok {
 		return errors.WithFields(errors.Fields{"Name": name}).New("File has not been imported")
 	}
 	for _, section := range yp.Files[name] {
 		//run template
-		b, err := tmplFunc(section.OriginalBytes)
-		if err != nil {
+		if err := section.Render(vals...); err != nil {
 			return err
 		}
-		section.Bytes = b
+	}
+	return nil
+}
+
+func (yp *Yp) ApplyDefaultTemplateStrict(name string, vals ...interface{}) error {
+	return yp.applyDefaultTemplate(name, true, vals)
+}
+
+func (yp *Yp) ApplyDefaultTemplate(name string, vals ...interface{}) error {
+	return yp.applyDefaultTemplate(name, false, vals)
+}
+
+func (yp *Yp) ApplyTemplate(name string, tmplFunc TemplateFunc, vals ...interface{}) error {
+	if _, ok := yp.Files[name]; !ok {
+		return errors.WithFields(errors.Fields{"Name": name}).New("File has not been imported")
+	}
+	for _, section := range yp.Files[name] {
+		//run template
+		if err := section.RenderWithTemplateFunc(tmplFunc, vals...); err != nil {
+			return err
+		}
 	}
 	return nil
 }
