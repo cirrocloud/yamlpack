@@ -8,6 +8,7 @@ require (
 	github.com/Masterminds/semver v1.4.2 // indirect
 	github.com/Masterminds/sprig v2.18.0+incompatible
 	github.com/charter-se/structured v0.0.0-20190211172727-b8be75e216c8
+	github.com/ghodss/yaml v1.0.0
 	github.com/google/uuid v1.1.1 // indirect
 	github.com/huandu/xstrings v1.2.0 // indirect
 	github.com/imdario/mergo v0.3.7 // indirect
@@ -16,3 +17,5 @@ require (
 	github.com/spf13/viper v1.3.2-0.20190315063904-3954e415200e
 	gopkg.in/yaml.v2 v2.2.2
 )
+
+replace github.com/spf13/viper v1.3.2 => github.com/demond2/viper v1.3.2

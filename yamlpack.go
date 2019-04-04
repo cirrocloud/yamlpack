@@ -9,8 +9,8 @@ import (
 
 	"github.com/Masterminds/sprig"
 	errors "github.com/charter-se/structured/errors"
+	"github.com/ghodss/yaml"
 	"github.com/spf13/viper"
-	yaml "gopkg.in/yaml.v2"
 )
 
 type TemplateFunc func([]byte, interface{}) ([]byte, error)
@@ -34,11 +34,14 @@ type Yp struct {
 
 type Viper viper.Viper
 
+func init() {
+	viper.SetKeysCaseSensitive(true)
+}
+
 //New returns a newly created and initialized *Yp
 func New() *Yp {
 	//Set Case sensiity true
 	// this is a global in viper, nothing to be done about it
-	viper.SetKeysCaseSensitive(true)
 	yp := &Yp{}
 	yp.Handlers = make(map[string]func(string) error)
 	yp.Files = make(map[string][]*YamlSection)
@@ -190,7 +193,7 @@ func (section *YamlSection) UnmarshalStrict(entry interface{}) (err error) {
 		err = errors.Wrap(err, "yaml intermediate marshal failed")
 		return err
 	}
-	if err = yaml.UnmarshalStrict(m, entry); err != nil {
+	if err = yaml.Unmarshal(m, entry, yaml.DisallowUnknownFields); err != nil {
 		err = errors.Wrap(err, "yaml unarshal strict failed")
 		return err
 	}
