@@ -123,40 +123,43 @@ func importRawSections(r io.Reader) ([]*YamlSection, error) {
 }
 
 func Filter(in []*YamlSection, filters []string) ([]*YamlSection, error) {
-	ret := []*YamlSection{}
+	sections := []*YamlSection{}
 	for _, section := range in {
 		//Each section is a document, needs to be filtered so the consumer gets the sections they want
 		// then run the supplied template, then Vipered
 		// this avoids running templates on unrelated sections that we may not have the data for
 
 		//run filters
-		if !func() bool {
-			for _, v := range filters {
-				rx := regexp.MustCompile(v)
-				scanner := bufio.NewScanner(bytes.NewBuffer(section.OriginalBytes))
-				for scanner.Scan() {
-					if rx.MatchString(scanner.Text()) {
-						return true
-					}
-				}
-			}
-			return false
-		}() {
+		if !filterMatches(section.OriginalBytes, filters) {
 			continue
 		}
 		//save completed section
-		ret = append(ret, section)
+		sections = append(sections, section)
 	}
-	return ret, nil
+	return sections, nil
+}
+
+func filterMatches(sectionBytes []byte, filters []string) bool {
+	for _, v := range filters {
+		rx := regexp.MustCompile(v)
+		scanner := bufio.NewScanner(bytes.NewBuffer(sectionBytes))
+		for scanner.Scan() {
+			if rx.MatchString(scanner.Text()) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (yp *Yp) ApplyFilters(s string, filters []string) error {
-	if _, ok := yp.Files[s]; !ok {
+	sections, ok := yp.Files[s]
+	if !ok {
 		return errors.WithFields(errors.Fields{
 			"File": s,
 		}).New("Apply filters failed, no such file loaded")
 	}
-	out, err := Filter(yp.Files[s], filters)
+	out, err := Filter(sections, filters)
 	if err != nil {
 		return err
 	}
@@ -165,7 +168,8 @@ func (yp *Yp) ApplyFilters(s string, filters []string) error {
 }
 
 func (yp *Yp) applyNullTemplate(name string) error {
-	if _, ok := yp.Files[name]; !ok {
+	sections, ok := yp.Files[name]
+	if !ok {
 		return errors.WithFields(errors.Fields{"Name": name}).New("File has not been imported")
 	}
 
@@ -184,7 +188,7 @@ func (yp *Yp) applyNullTemplate(name string) error {
 		return renderedBytes.Bytes(), nil
 	}
 
-	for _, section := range yp.Files[name] {
+	for _, section := range sections {
 		//run template
 		b, err := tf(section.OriginalBytes)
 		if err != nil {
@@ -197,10 +201,11 @@ func (yp *Yp) applyNullTemplate(name string) error {
 }
 
 func (yp *Yp) applyDefaultTemplate(name string, strict bool, vals interface{}) error {
-	if _, ok := yp.Files[name]; !ok {
+	sections, ok := yp.Files[name]
+	if !ok {
 		return errors.WithFields(errors.Fields{"Name": name}).New("File has not been imported")
 	}
-	for _, section := range yp.Files[name] {
+	for _, section := range sections {
 		//run template
 		if err := section.Render(vals); err != nil {
 			return err
@@ -218,10 +223,11 @@ func (yp *Yp) ApplyDefaultTemplate(name string, vals interface{}) error {
 }
 
 func (yp *Yp) ApplyTemplate(name string, tmplFunc TemplateFunc, vals interface{}) error {
-	if _, ok := yp.Files[name]; !ok {
+	sections, ok := yp.Files[name]
+	if !ok {
 		return errors.WithFields(errors.Fields{"Name": name}).New("File has not been imported")
 	}
-	for _, section := range yp.Files[name] {
+	for _, section := range sections {
 		//run template
 		if err := section.RenderWithTemplateFunc(tmplFunc, vals); err != nil {
 			return err
