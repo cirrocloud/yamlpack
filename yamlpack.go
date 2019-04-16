@@ -13,8 +13,10 @@ import (
 	"github.com/spf13/viper"
 )
 
+//TemplateFunc is processed with RenderWithTemplateFunc
 type TemplateFunc func([]byte, interface{}) ([]byte, error)
 
+//YamlPack provides a set of functionality to process composite yaml documents
 type YamlPack interface {
 	AllSections() []*YamlSection
 	ListYamls() []string
@@ -32,6 +34,7 @@ type Yp struct {
 	DefaultTemplateFunc TemplateFunc
 }
 
+//Viper is an alias of viper.Viper (github.com/spf13/viper)
 type Viper viper.Viper
 
 func init() {
@@ -104,18 +107,22 @@ func (yp *Yp) DeregisterHandler(name string) {
 	return
 }
 
+//GetString returns a string value from a doted notation key
 func (section *YamlSection) GetString(identifier string) string {
 	return section.Viper.GetString(identifier)
 }
 
+//GetStringSlice returns a string slice from a doted notation key
 func (section *YamlSection) GetStringSlice(identifier string) []string {
 	return section.Viper.GetStringSlice(identifier)
 }
 
+//GetBool returns a boolean value from a doted notation key
 func (section *YamlSection) GetBool(identifier string) bool {
 	return section.Viper.GetBool(identifier)
 }
 
+//Sub returns a *YamlSection instance from a yaml key identified by doted notation
 func (section *YamlSection) Sub(identifier string) (*YamlSection, error) {
 	viperSub := section.Viper.Sub(identifier)
 	if viperSub == nil {
@@ -132,9 +139,12 @@ func (section *YamlSection) Sub(identifier string) (*YamlSection, error) {
 	}, nil
 }
 
+//Render applies the sections configured template with the provided values
 func (section *YamlSection) Render(vals interface{}) error {
 	return section.RenderWithTemplateFunc(section.TemplateFunc, vals)
 }
+
+//Render applies the provided template function to the *YamlSection with the provided values
 func (section *YamlSection) RenderWithTemplateFunc(tmplFunc TemplateFunc, vals interface{}) error {
 
 	out, err := runTemplate(section.OriginalBytes, tmplFunc, vals)
@@ -154,6 +164,7 @@ func (section *YamlSection) RenderWithTemplateFunc(tmplFunc TemplateFunc, vals i
 	return nil
 }
 
+//AllSettings returns a value map derived from the *YamlSection data
 func (section *YamlSection) AllSettings() (ret map[string]interface{}, err error) {
 	ret = make(map[string]interface{})
 	defer func() {
@@ -164,6 +175,8 @@ func (section *YamlSection) AllSettings() (ret map[string]interface{}, err error
 	return section.Viper.AllSettings(), nil
 }
 
+//Unmarshal processes *YamlSection data into the provided data structure
+//Missing values or destination structure elements are ignored
 func (section *YamlSection) Unmarshal(entry interface{}) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -182,6 +195,8 @@ func (section *YamlSection) Unmarshal(entry interface{}) (err error) {
 	return nil
 }
 
+//UnmarshalStrict processes *YamlSection data into the provided data structure
+//This is the strict version which has DisallowUnknownFields enabled
 func (section *YamlSection) UnmarshalStrict(entry interface{}) (err error) {
 	defer func() {
 		if r := recover(); r != nil {

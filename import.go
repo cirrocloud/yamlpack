@@ -39,6 +39,7 @@ func (yp *Yp) ImportFile(s string) error {
 	return yp.Import(s, bufio.NewReader(r))
 }
 
+//YamlParse adds viper instances to imported file sections
 func (yp *Yp) YamlParse(name string) error {
 	if _, ok := yp.Files[name]; !ok {
 		return errors.WithFields(errors.Fields{
@@ -62,17 +63,18 @@ func (yp *Yp) YamlParse(name string) error {
 	return nil
 }
 
-func (yp *Yp) ImportWithTemplateFuncAndFilters(s string, r io.Reader, tf TemplateFunc, filters []string) error {
-	if err := yp.Import(s, r); err != nil {
+//ImportWithTemplateFuncAndFilters offers a way to import yaml from an io.Reader, applies a template, and filters sections based on a string array
+func (yp *Yp) ImportWithTemplateFuncAndFilters(identifier string, r io.Reader, tf TemplateFunc, filters []string) error {
+	if err := yp.Import(identifier, r); err != nil {
 		return errors.Wrap(err, "Import failed")
 	}
-	if err := yp.ApplyTemplate(s, tf, nil); err != nil {
+	if err := yp.ApplyTemplate(identifier, tf, nil); err != nil {
 		return errors.Wrap(err, "ApplyTemplate")
 	}
-	if err := yp.ApplyFilters(s, filters); err != nil {
+	if err := yp.ApplyFilters(identifier, filters); err != nil {
 		return errors.Wrap(err, "ApplyFilters failed")
 	}
-	if err := yp.YamlParse(s); err != nil {
+	if err := yp.YamlParse(identifier); err != nil {
 		return errors.Wrap(err, "YamlParse failed")
 	}
 
@@ -122,6 +124,7 @@ func importRawSections(r io.Reader) ([]*YamlSection, error) {
 	return sections, nil
 }
 
+//Filter removes *YamlSections from a list based on text filters
 func Filter(in []*YamlSection, filters []string) ([]*YamlSection, error) {
 	sections := []*YamlSection{}
 	for _, section := range in {
@@ -152,6 +155,7 @@ func filterMatches(sectionBytes []byte, filters []string) bool {
 	return false
 }
 
+//ApplyFilters removes *YamlSections from a yamlpack instance based on text filter data
 func (yp *Yp) ApplyFilters(s string, filters []string) error {
 	sections, ok := yp.Files[s]
 	if !ok {
@@ -214,14 +218,17 @@ func (yp *Yp) applyDefaultTemplate(name string, strict bool, vals interface{}) e
 	return nil
 }
 
+//ApplyDefaultTemplateStrict runs the default template function and errors on any failure such as missing data
 func (yp *Yp) ApplyDefaultTemplateStrict(name string, vals interface{}) error {
 	return yp.applyDefaultTemplate(name, true, vals)
 }
 
+//ApplyDefaultTemplate runs the default template function but only errors on parse failures
 func (yp *Yp) ApplyDefaultTemplate(name string, vals interface{}) error {
 	return yp.applyDefaultTemplate(name, false, vals)
 }
 
+//ApplyTemplate executes RenderWithTemplateFunc on every section in a yamlpack instance
 func (yp *Yp) ApplyTemplate(name string, tmplFunc TemplateFunc, vals interface{}) error {
 	sections, ok := yp.Files[name]
 	if !ok {
