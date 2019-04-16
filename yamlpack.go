@@ -126,17 +126,18 @@ func (section *YamlSection) Sub(s string) (*YamlSection, error) {
 		return nil, err
 	}
 	return &YamlSection{
-		Bytes: b,
-		Viper: v,
+		Bytes:        b,
+		Viper:        v,
+		TemplateFunc: section.TemplateFunc,
 	}, nil
 }
 
-func (section *YamlSection) Render(vals ...interface{}) error {
+func (section *YamlSection) Render(vals interface{}) error {
 	return section.RenderWithTemplateFunc(section.TemplateFunc, vals)
 }
-func (section *YamlSection) RenderWithTemplateFunc(tmplFunc TemplateFunc, vals ...interface{}) error {
+func (section *YamlSection) RenderWithTemplateFunc(tmplFunc TemplateFunc, vals interface{}) error {
 
-	out, err := runTemplate(section.OriginalBytes, tmplFunc, vals...)
+	out, err := runTemplate(section.OriginalBytes, tmplFunc, vals)
 	if err != nil {
 		return err
 	}
@@ -145,7 +146,6 @@ func (section *YamlSection) RenderWithTemplateFunc(tmplFunc TemplateFunc, vals .
 	vp := viper.New()
 	vp.SetConfigType("yaml")
 	if err := vp.ReadConfig(bytes.NewBuffer(section.Bytes)); err != nil {
-		fmt.Printf("---\n%v\n", string(section.Bytes))
 		return errors.WithFields(errors.Fields{
 			"Data": section.Bytes,
 		}).Wrap(err, "failed to parse yaml section")
@@ -251,23 +251,6 @@ func defaultTemplate(in []byte, val interface{}) ([]byte, error) {
 	return renderedBytes.Bytes(), nil
 }
 
-func runTemplate(in []byte, tmplFunc TemplateFunc, vals ...interface{}) ([]byte, error) {
-	return tmplFunc(in, MergeValues(vals...))
-}
-
-//MergeValues is not recursive, only does the first level
-func MergeValues(v ...interface{}) map[string]interface{} {
-	target := make(map[string]interface{})
-	for _, m := range v {
-		switch vv := m.(type) {
-		case map[string]interface{}:
-			for key, val := range vv {
-				fmt.Printf("Merging %v\n", key)
-				target[key] = val
-			}
-		default:
-			fmt.Printf("Failed merge of unhandled type: %T\n", m)
-		}
-	}
-	return target
+func runTemplate(in []byte, tmplFunc TemplateFunc, vals interface{}) ([]byte, error) {
+	return tmplFunc(in, vals)
 }

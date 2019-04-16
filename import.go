@@ -66,7 +66,7 @@ func (yp *Yp) ImportWithTemplateFuncAndFilters(s string, r io.Reader, tf Templat
 	if err := yp.Import(s, r); err != nil {
 		return errors.Wrap(err, "Import failed")
 	}
-	if err := yp.ApplyTemplate(s, tf); err != nil {
+	if err := yp.ApplyTemplate(s, tf, nil); err != nil {
 		return errors.Wrap(err, "ApplyTemplate")
 	}
 	if err := yp.ApplyFilters(s, filters); err != nil {
@@ -191,38 +191,39 @@ func (yp *Yp) applyNullTemplate(name string) error {
 			return err
 		}
 		section.Bytes = b
+		section.TemplateFunc = yp.DefaultTemplateFunc
 	}
 	return nil
 }
 
-func (yp *Yp) applyDefaultTemplate(name string, strict bool, vals ...interface{}) error {
+func (yp *Yp) applyDefaultTemplate(name string, strict bool, vals interface{}) error {
 	if _, ok := yp.Files[name]; !ok {
 		return errors.WithFields(errors.Fields{"Name": name}).New("File has not been imported")
 	}
 	for _, section := range yp.Files[name] {
 		//run template
-		if err := section.Render(vals...); err != nil {
+		if err := section.Render(vals); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (yp *Yp) ApplyDefaultTemplateStrict(name string, vals ...interface{}) error {
+func (yp *Yp) ApplyDefaultTemplateStrict(name string, vals interface{}) error {
 	return yp.applyDefaultTemplate(name, true, vals)
 }
 
-func (yp *Yp) ApplyDefaultTemplate(name string, vals ...interface{}) error {
+func (yp *Yp) ApplyDefaultTemplate(name string, vals interface{}) error {
 	return yp.applyDefaultTemplate(name, false, vals)
 }
 
-func (yp *Yp) ApplyTemplate(name string, tmplFunc TemplateFunc, vals ...interface{}) error {
+func (yp *Yp) ApplyTemplate(name string, tmplFunc TemplateFunc, vals interface{}) error {
 	if _, ok := yp.Files[name]; !ok {
 		return errors.WithFields(errors.Fields{"Name": name}).New("File has not been imported")
 	}
 	for _, section := range yp.Files[name] {
 		//run template
-		if err := section.RenderWithTemplateFunc(tmplFunc, vals...); err != nil {
+		if err := section.RenderWithTemplateFunc(tmplFunc, vals); err != nil {
 			return err
 		}
 	}

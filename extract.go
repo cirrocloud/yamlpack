@@ -7,8 +7,6 @@ import (
 	yaml "gopkg.in/yaml.v2"
 )
 
-// values := yamlpack.MapFromBytes(yamlpack.FindSection(input))
-
 func MapFromBytes(data []byte) (map[string]interface{}, error) {
 	ret := make(map[string]interface{})
 	err := yaml.Unmarshal(data, ret)
