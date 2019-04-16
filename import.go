@@ -177,24 +177,9 @@ func (yp *Yp) applyNullTemplate(name string) error {
 		return errors.WithFields(errors.Fields{"Name": name}).New("File has not been imported")
 	}
 
-	tf := func(in []byte) ([]byte, error) {
-		renderedBytes := bytes.NewBuffer([]byte{})
-		tmpl, err := template.New("default").Parse(string(in))
-		if err != nil {
-			return nil, err
-		}
-		if err := tmpl.Execute(renderedBytes, make(map[string]interface{})); err != nil {
-			fmt.Printf("---\n")
-			fmt.Printf("%v\n", renderedBytes.String())
-			fmt.Printf("---\n")
-			return nil, errors.Wrap(err, "Failed to render template")
-		}
-		return renderedBytes.Bytes(), nil
-	}
-
 	for _, section := range sections {
 		//run template
-		b, err := tf(section.OriginalBytes)
+		b, err := nullTemplate(section.OriginalBytes)
 		if err != nil {
 			return err
 		}
@@ -202,6 +187,21 @@ func (yp *Yp) applyNullTemplate(name string) error {
 		section.TemplateFunc = yp.DefaultTemplateFunc
 	}
 	return nil
+}
+
+func nullTemplate(in []byte) ([]byte, error) {
+	renderedBytes := bytes.NewBuffer([]byte{})
+	tmpl, err := template.New("default").Parse(string(in))
+	if err != nil {
+		return nil, err
+	}
+	if err := tmpl.Execute(renderedBytes, make(map[string]interface{})); err != nil {
+		fmt.Printf("---\n")
+		fmt.Printf("%v\n", renderedBytes.String())
+		fmt.Printf("---\n")
+		return nil, errors.Wrap(err, "Failed to render template")
+	}
+	return renderedBytes.Bytes(), nil
 }
 
 func (yp *Yp) applyDefaultTemplate(name string, strict bool, vals interface{}) error {
