@@ -8,7 +8,7 @@ import (
 	"text/template"
 
 	"github.com/Masterminds/sprig"
-	errors "github.com/charter-se/structured/errors"
+	errors "github.com/charter-oss/structured/errors"
 	"github.com/ghodss/yaml"
 	"github.com/spf13/viper"
 )
