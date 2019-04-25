@@ -5,7 +5,7 @@ import (
 	"os"
 	"sync"
 
-	errors "github.com/charter-se/structured/errors"
+	errors "github.com/charter-oss/structured/errors"
 	"github.com/spf13/viper"
 	yaml "gopkg.in/yaml.v2"
 )
@@ -134,6 +134,24 @@ func (section *YamlSection) Unmarshal(entry interface{}) (err error) {
 		return err
 	}
 	if err = yaml.Unmarshal(m, entry); err != nil {
+		err = errors.Wrap(err, "yaml unarshal strict failed")
+		return err
+	}
+	return nil
+}
+
+func (section *YamlSection) UnmarshalStrict(entry interface{}) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = errors.Wrap(fmt.Errorf("%v", r), "yaml unmarshal failed")
+		}
+	}()
+	m, err := yaml.Marshal(sanitize(section.Viper.AllSettings()))
+	if err != nil {
+		err = errors.Wrap(err, "yaml intermediate marshal failed")
+		return err
+	}
+	if err = yaml.UnmarshalStrict(m, entry); err != nil {
 		err = errors.Wrap(err, "yaml unarshal strict failed")
 		return err
 	}
