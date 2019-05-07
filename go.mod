@@ -15,8 +15,10 @@ require (
 	github.com/jjeffery/errors v1.0.3 // indirect
 	github.com/jjeffery/kv v0.7.0 // indirect
 	github.com/sirupsen/logrus v1.4.1 // indirect
-	github.com/spf13/viper v1.3.2-0.20190315063904-3954e415200e
+	github.com/smartystreets/goconvey v0.0.0-20190330032615-68dc04aab96a
+	github.com/spf13/viper v0.0.0-00010101000000-000000000000
+	golang.org/x/crypto v0.0.0-20190426145343-a29dc8fdc734 // indirect
 	gopkg.in/yaml.v2 v2.2.2
 )
 
-replace github.com/spf13/viper v1.3.2 => github.com/demond2/viper v1.3.2
+replace github.com/spf13/viper => ../../demond2/viper
