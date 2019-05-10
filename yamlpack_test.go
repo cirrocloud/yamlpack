@@ -1,16 +1,15 @@
 package yamlpack
 
 import (
-	"reflect"
 	"testing"
+
+	. "github.com/smartystreets/goconvey/convey"
 )
 
 func TestNew(t *testing.T) {
-	yp := New()
-	if yp == nil {
-		t.Errorf("New() *Yp instance was nil")
-	}
-	if reflect.TypeOf(yp.Handlers) != reflect.TypeOf((map[string]func(string) error)(nil)) {
-		t.Errorf("*Yp.Handlers does not contain 'map[string]func(string) error'")
-	}
+	Convey("New yamlpack", t, func() {
+		yp := New()
+		So(yp, ShouldNotBeNil)
+		So(yp, ShouldHaveSameTypeAs, &Yp{})
+	})
 }

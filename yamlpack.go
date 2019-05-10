@@ -133,6 +133,7 @@ func (section *YamlSection) Sub(identifier string) (*YamlSection, error) {
 		return nil, err
 	}
 	return &YamlSection{
+		File:         section.File,
 		Bytes:        marshaledBytes,
 		Viper:        viperSub,
 		TemplateFunc: section.TemplateFunc,
