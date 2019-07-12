@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"text/template"
 
-	errors "github.com/charter-oss/structured/errors"
+	errors "github.com/cirrocloud/structured/errors"
 	"github.com/spf13/viper"
 )
 
