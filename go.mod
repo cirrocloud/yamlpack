@@ -20,4 +20,4 @@ require (
 	gopkg.in/yaml.v2 v2.2.2
 )
 
-replace github.com/spf13/viper => ./vendor/github.com/demond2/viper
+replace github.com/spf13/viper => ./vendor-custom/github.com/demond2/viper
